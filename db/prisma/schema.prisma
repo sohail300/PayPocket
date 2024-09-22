@@ -1,0 +1,82 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                 String              @id @default(uuid()) @db.Uuid
+  number             String              @unique
+  password           String
+  otp                String
+  name               String
+  OnRampTransactions OnRampTransaction[]
+  sentTransfers      Transfer[]          @relation("sender")
+  receivedTransfers  Transfer[]          @relation("receiver")
+  balance            Balance?
+  recentContacts     RecentContacts[]    @relation("userRecentContacts")
+  contactOf          RecentContacts[]    @relation("contactRecentContacts")
+}
+
+model Merchant {
+  id    String @id @default(uuid()) @db.Uuid
+  email String @unique
+  name  String
+}
+
+model Balance {
+  id     String @id @default(uuid())
+  amount Int
+  locked Int
+  userId String @unique @db.Uuid
+  user   User   @relation(fields: [userId], references: [id])
+}
+
+model OnRampTransaction {
+  id        String            @id @default(uuid()) @db.Uuid
+  status    TransactionStatus
+  token     String
+  provider  String
+  amount    Int
+  startTime DateTime
+  userId    String            @db.Uuid
+  user      User              @relation(fields: [userId], references: [id])
+}
+
+model Transfer {
+  id             String            @id @default(uuid()) @db.Uuid
+  status         TransactionStatus
+  amount         Int
+  startTime      DateTime
+  senderUserId   String            @db.Uuid
+  sender         User              @relation("sender", fields: [senderUserId], references: [id])
+  receiverUserId String            @db.Uuid
+  receiver       User              @relation("receiver", fields: [receiverUserId], references: [id])
+}
+
+enum TransactionStatus {
+  PENDING
+  SUCCESS
+  FAILED
+}
+
+model RecentContacts {
+  id              String   @id @default(uuid()) @db.Uuid
+  userId          String   @db.Uuid
+  user            User     @relation("userRecentContacts", fields: [userId], references: [id])
+  contactId       String   @db.Uuid
+  contact         User     @relation("contactRecentContacts", fields: [contactId], references: [id])
+  lastContactedAt DateTime @default(now())
+
+  @@unique([userId, contactId])
+  @@index([userId, lastContactedAt])
+}
